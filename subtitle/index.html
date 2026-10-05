@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>字幕格式转换器 · 完全离线版</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+                 "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(160deg, #eef2ff 0%, #f8fafc 55%, #f0fdf4 100%);
+    min-height: 100vh;
+    padding: 36px 16px 60px;
+    color: #0f172a;
+  }
+
+  .app { width: 100%; max-width: 1120px; margin: 0 auto; }
+
+  h1 { font-size: 26px; font-weight: 700; text-align: center; letter-spacing: 0.5px; }
+
+  .offline-badge {
+    display: inline-block; margin-left: 8px; padding: 2px 10px; border-radius: 999px;
+    background: #dcfce7; color: #15803d; font-size: 12px; font-weight: 600;
+    vertical-align: middle; letter-spacing: 0;
+  }
+
+  .subtitle { margin-top: 8px; text-align: center; font-size: 13px; color: #64748b; }
+
+  .card {
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(30, 41, 59, 0.10);
+    padding: 20px 22px;
+  }
+
+  /* ---------- 设置区 ---------- */
+  .settings { margin-top: 24px; }
+
+  .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+  .row + .row { margin-top: 14px; }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field > span { font-size: 12px; font-weight: 600; color: #64748b; letter-spacing: 0.2px; }
+
+  select, input[type="number"], input[type="text"] {
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #0f172a;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  }
+  select:focus, input:focus {
+    border-color: #2563eb; background: #fff; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  }
+  select { min-width: 150px; cursor: pointer; }
+  input[type="number"] { width: 92px; }
+
+  .swap {
+    padding: 10px 14px; font-size: 14px; font-weight: 600; font-family: inherit;
+    background: #eff6ff; color: #1d4ed8; border: 1.5px solid #bfdbfe; border-radius: 10px;
+    cursor: pointer; transition: background 0.2s, transform 0.08s;
+  }
+  .swap:hover { background: #dbeafe; }
+  .swap:active { transform: translateY(1px); }
+
+  .grow { flex: 1 1 auto; }
+
+  .checks { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+  .check { display: flex; align-items: center; gap: 7px; font-size: 13px; color: #334155; cursor: pointer; user-select: none; }
+  .check input { width: 15px; height: 15px; accent-color: #2563eb; cursor: pointer; }
+
+  button { font-family: inherit; }
+
+  .btn-primary {
+    padding: 12px 30px; font-size: 15px; font-weight: 600; color: #fff;
+    background: #2563eb; border: none; border-radius: 12px; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
+    transition: background 0.2s, transform 0.08s, opacity 0.2s;
+  }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-primary:active { transform: translateY(1px); }
+
+  /* ---------- 左右两栏 ---------- */
+  .panes { display: grid; grid-template-columns: 1fr; gap: 18px; margin-top: 18px; }
+  @media (min-width: 900px) { .panes { grid-template-columns: 1fr 1fr; } }
+
+  .pane { display: flex; flex-direction: column; padding: 16px 18px 14px; }
+
+  .pane-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 10px;
+  }
+  .pane-actions { display: flex; gap: 8px; align-items: center; }
+
+  .mini {
+    padding: 6px 13px; font-size: 12.5px; font-weight: 600; color: #334155;
+    background: #f1f5f9; border: 1.5px solid #e2e8f0; border-radius: 9px; cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+  }
+  .mini:hover { background: #e2e8f0; }
+  .mini.blue { background: #2563eb; border-color: #2563eb; color: #fff; }
+  .mini.blue:hover { background: #1d4ed8; }
+  .mini:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  textarea {
+    width: 100%; height: 330px; padding: 12px 14px;
+    font-size: 13px; line-height: 1.65;
+    font-family: "SF Mono", Menlo, Monaco, Consolas, "Courier New", "PingFang SC", monospace;
+    color: #0f172a; background: #f8fafc;
+    border: 1.5px solid #e2e8f0; border-radius: 12px;
+    resize: vertical; outline: none;
+    white-space: pre; overflow: auto;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  }
+  textarea:focus { border-color: #2563eb; background: #fff; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+  textarea[dragover] { border-color: #2563eb; border-style: dashed; background: #eff6ff; }
+  textarea[readonly] { color: #1e3a8a; background: #f8faff; }
+
+  .pane-foot {
+    display: flex; justify-content: space-between; gap: 10px;
+    margin-top: 8px; font-size: 12px; color: #94a3b8; min-height: 17px;
+  }
+  .pane-foot .hint-ok { color: #15803d; font-weight: 600; }
+  .pane-foot .hint-warn { color: #b45309; font-weight: 600; }
+
+  .tabs { display: none; gap: 6px; margin-bottom: 8px; }
+  .tabs.show { display: flex; }
+  .tab {
+    padding: 5px 14px; font-size: 12.5px; font-weight: 600; color: #64748b;
+    background: #f1f5f9; border: none; border-radius: 8px; cursor: pointer;
+  }
+  .tab.active { background: #e0e7ff; color: #3730a3; }
+
+  .table-wrap {
+    height: 330px; overflow: auto; border: 1.5px solid #e2e8f0; border-radius: 12px; background: #fff;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    position: sticky; top: 0; background: #f1f5f9; color: #475569; font-weight: 700;
+    text-align: left; padding: 8px 10px; border-bottom: 1px solid #e2e8f0; white-space: nowrap;
+  }
+  td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  td.num { color: #94a3b8; width: 34px; }
+  td.time { white-space: nowrap; font-family: "SF Mono", Menlo, Monaco, monospace; color: #1d4ed8; font-size: 12px; }
+  td.text { white-space: pre-wrap; word-break: break-word; }
+
+  /* ---------- 状态与提示 ---------- */
+  .status { margin-top: 14px; font-size: 13.5px; min-height: 20px; text-align: center; }
+  .status.success { color: #16a34a; font-weight: 600; }
+  .status.error { color: #dc2626; font-weight: 600; }
+
+  .warnings { margin-top: 12px; display: none; }
+  .warnings.show { display: block; }
+  .warnings ul {
+    background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px;
+    padding: 12px 16px 12px 32px; font-size: 12.5px; line-height: 1.85; color: #92400e;
+  }
+
+  footer { margin-top: 26px; text-align: center; font-size: 12px; color: #94a3b8; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <h1>字幕格式转换器<span class="offline-badge">100% 离线</span></h1>
+  <p class="subtitle">VTT → LRC · 以及 SRT / ASS / SSA / SUB 任意互转 —— 全部在本地完成，不上传任何内容</p>
+
+  <section class="card settings">
+    <div class="row">
+      <label class="field">
+        <span>源格式</span>
+        <select id="fromSel"></select>
+      </label>
+      <button class="swap" id="swapBtn" title="把转换结果作为新的输入，格式互换">⇄</button>
+      <label class="field">
+        <span>目标格式</span>
+        <select id="toSel"></select>
+      </label>
+      <div class="grow"></div>
+      <button class="btn-primary" id="convertBtn">开始转换</button>
+    </div>
+
+    <div class="row">
+      <label class="field" id="fpsField">
+        <span>帧率 fps</span>
+        <input type="number" id="fpsInput" value="23.976" step="0.001" min="1" max="120">
+      </label>
+      <label class="field">
+        <span>时间偏移（秒）</span>
+        <input type="number" id="offsetInput" value="0" step="0.5">
+      </label>
+      <label class="field">
+        <span>多行字幕合并方式</span>
+        <select id="joinSel">
+          <option value="space">空格连接（推荐）</option>
+          <option value="slash">斜杠分隔  /</option>
+          <option value="keep">保留换行</option>
+        </select>
+      </label>
+      <div class="field grow">
+        <span>选项</span>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="optStrip" checked> 去除样式标记</label>
+          <label class="check"><input type="checkbox" id="optMerge"> 相同歌词合并一行</label>
+          <label class="check"><input type="checkbox" id="optMs3"> LRC 毫秒三位</label>
+          <label class="check"><input type="checkbox" id="optBom"> 写入 UTF-8 BOM</label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panes">
+    <div class="card pane">
+      <div class="pane-head">
+        <span>输入字幕</span>
+        <div class="pane-actions">
+          <button class="mini" id="pickBtn">选择文件</button>
+          <button class="mini" id="clearBtn">清空</button>
+        </div>
+      </div>
+      <textarea id="input" placeholder="把字幕内容粘贴到这里，或直接把文件拖进这个框&#10;支持 .vtt .srt .lrc .ass .ssa .sub .sbv .txt" spellcheck="false"></textarea>
+      <div class="pane-foot">
+        <span id="inStat">0 字符</span>
+        <span id="detectHint"></span>
+      </div>
+      <input type="file" id="fileInput" hidden accept=".vtt,.srt,.lrc,.ass,.ssa,.sub,.sbv,.txt,text/plain">
+    </div>
+
+    <div class="card pane">
+      <div class="pane-head">
+        <span>转换结果</span>
+        <div class="pane-actions">
+          <button class="mini" id="copyBtn">复制</button>
+          <button class="mini blue" id="downloadBtn">下载</button>
+        </div>
+      </div>
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tab="text">文本</button>
+        <button class="tab" data-tab="table">表格</button>
+      </div>
+      <textarea id="output" readonly placeholder="点击「开始转换」后，结果会显示在这里" spellcheck="false"></textarea>
+      <div class="table-wrap" id="tableWrap" hidden>
+        <table>
+          <thead><tr><th>#</th><th>开始</th><th>结束</th><th>时长</th><th>文本</th></tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div class="pane-foot"><span id="outStat"></span><span id="outInfo"></span></div>
+    </div>
+  </section>
+
+  <div class="status" id="status"></div>
+  <div class="warnings" id="warnings"><ul id="warningList"></ul></div>
+
+  <footer>离线字幕格式转换器 · 单文件 · 无需任何网络依赖 · 快捷键 Ctrl/⌘ + Enter 转换</footer>
+</div>
+
+<script>
+/*!
+ * SubConv 字幕转换引擎 v1.0.0
+ * 纯 JavaScript，无任何依赖，可完全离线运行（浏览器 / Node 通用）
+ * 支持格式：SRT / WebVTT / LRC / ASS / SSA / SUB(MicroDVD) / SUB(SubViewer·SBV)
+ * 引擎代码由本项目自行实现，MIT License
+ */
+(function (root, factory) {
+  var api = factory();
+  if (typeof module === 'object' && module.exports) { module.exports = api; }
+  else { root.SubConv = api; }
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  /* ============================================================
+   * 格式表
+   * ============================================================ */
+  var FORMATS = [
+    { id: 'srt',           name: 'SRT',             ext: 'srt', desc: 'SubRip —— 最通用的字幕格式，几乎所有播放器都支持' },
+    { id: 'vtt',           name: 'VTT',             ext: 'vtt', desc: 'WebVTT —— HTML5 网页视频字幕标准' },
+    { id: 'lrc',           name: 'LRC',             ext: 'lrc', desc: '歌词格式 —— 只有开始时间，用于音乐播放器' },
+    { id: 'ass',           name: 'ASS',             ext: 'ass', desc: 'Advanced SubStation —— 支持样式特效的高级字幕' },
+    { id: 'ssa',           name: 'SSA',             ext: 'ssa', desc: 'SubStation Alpha —— ASS 的旧版格式' },
+    { id: 'sub_subviewer', name: 'SUB (SubViewer)', ext: 'sub', desc: 'SubViewer 2.0 / YouTube 的 .sbv，时间轴制' },
+    { id: 'sub_microdvd',  name: 'SUB (MicroDVD)',  ext: 'sub', desc: 'MicroDVD —— 基于帧号，转换需要帧率' }
+  ];
+
+  var FORMAT_MAP = {};
+  FORMATS.forEach(function (f) { FORMAT_MAP[f.id] = f; });
+
+  function formatInfo(id) { return FORMAT_MAP[id] || { id: id, name: id, ext: 'txt', desc: '' }; }
+
+  /* ============================================================
+   * 基础工具
+   * ============================================================ */
+  function stripBOM(s) { return s && s.charCodeAt(0) === 0xFEFF ? s.slice(1) : s; }
+  function normalizeNL(s) { return String(s).replace(/\r\n?/g, '\n').replace(/\u00a0/g, ' '); }
+  function pad(n, len) { n = String(n); while (n.length < len) { n = '0' + n; } return n; }
+  function trimText(s) { return String(s).replace(/[ \t]+$/gm, '').replace(/^\n+|\n+$/g, ''); }
+
+  function byStart(a, b) { return a.start - b.start; }
+
+  /** 解析任意时间戳字符串 → 秒（支持 HH:MM:SS,mmm / H:MM:SS.cc / MM:SS.xx / 纯秒数） */
+  function parseTimestamp(raw) {
+    if (raw === null || raw === undefined) { return null; }
+    var s = String(raw).trim().replace(',', '.');
+    if (!s) { return null; }
+    var m = s.match(/^(?:(\d+):)?(\d{1,3}):(\d{1,2}(?:\.\d+)?)$/);
+    if (m) {
+      var h = m[1] ? parseInt(m[1], 10) : 0;
+      return h * 3600 + parseInt(m[2], 10) * 60 + parseFloat(m[3]);
+    }
+    m = s.match(/^(\d+):(\d{1,2}(?:\.\d+)?)$/);
+    if (m) { return parseInt(m[1], 10) * 60 + parseFloat(m[2]); }
+    m = s.match(/^(\d+(?:\.\d+)?)$/);
+    if (m) { return parseFloat(m[1]); }
+    return null;
+  }
+
+  function toTotal(sec, unit) { return Math.max(0, Math.round(sec * unit)); }
+
+  /** HH:MM:SS,mmm（SRT） */
+  function fmtSRT(sec) {
+    var t = toTotal(sec, 1000);
+    return pad(Math.floor(t / 3600000), 2) + ':' + pad(Math.floor(t % 3600000 / 60000), 2) + ':' +
+           pad(Math.floor(t % 60000 / 1000), 2) + ',' + pad(t % 1000, 3);
+  }
+  /** HH:MM:SS.mmm（VTT） */
+  function fmtVTT(sec) { return fmtSRT(sec).replace(',', '.'); }
+  /** H:MM:SS.cc（ASS / SSA，百分秒） */
+  function fmtASS(sec) {
+    var t = toTotal(sec, 100);
+    return Math.floor(t / 360000) + ':' + pad(Math.floor(t % 360000 / 6000), 2) + ':' +
+           pad(Math.floor(t % 6000 / 100), 2) + '.' + pad(t % 100, 2);
+  }
+  /** HH:MM:SS.cc（SubViewer） */
+  function fmtSubViewer(sec) {
+    var t = toTotal(sec, 100);
+    return pad(Math.floor(t / 360000), 2) + ':' + pad(Math.floor(t % 360000 / 6000), 2) + ':' +
+           pad(Math.floor(t % 6000 / 100), 2) + '.' + pad(t % 100, 2);
+  }
+  /** mm:ss.xx（LRC），centi=true 时毫秒用两位小数 */
+  function fmtLRC(sec, digits) {
+    var unit = digits === 3 ? 1000 : 100;
+    var t = toTotal(sec, unit);
+    var m = Math.floor(t / (60 * unit));
+    var rest = t % (60 * unit);
+    return pad(m, 2) + ':' + pad(Math.floor(rest / unit), 2) + '.' + pad(rest % unit, digits === 3 ? 3 : 2);
+  }
+
+  /* ============================================================
+   * 文本清洗
+   * ============================================================ */
+  /** 去掉 SRT/VTT/ASS 中的样式标记，只留纯文本（用于 LRC 等纯文本目标） */
+  function stripMarkup(text) {
+    return String(text)
+      .replace(/\{\\[^}]*\}/g, '')                       // ASS 覆盖码 {\an8}
+      .replace(/<\/?[a-zA-Z][^>]*>/g, '')                // <i> <b> <v xx> <c.xx>
+      .replace(/<\d{2}:\d{2}:\d{2}[.,]\d{1,3}>/g, '')   // VTT 卡拉OK时间标签
+      .replace(/<[^>]{0,40}>/g, function (tag) {         // 剩余可疑标签
+        return /^<\s*\/?\s*[a-zA-Z]/.test(tag) ? '' : tag;
+      });
+  }
+
+  /** ASS 文本 → 普通文本 */
+  function assTextToPlain(text) {
+    return String(text)
+      .replace(/\{\\[^}]*\}/g, '')
+      .replace(/\\[Nn]/g, '\n')
+      .replace(/\\h/g, '\u00a0');
+  }
+
+  /** 普通文本 → ASS 文本 */
+  function plainToAssText(text) {
+    return String(text).replace(/\r?\n/g, '\\N').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
+  }
+
+  /* ============================================================
+   * 各格式解析器
+   * ============================================================ */
+
+  /** SubRip (.srt) */
+  function parseSRT(text) {
+    var src = normalizeNL(stripBOM(text));
+    var blocks = src.split(/\n{2,}/);
+    var cues = [];
+    blocks.forEach(function (block) {
+      var lines = block.split('\n');
+      while (lines.length && !lines[0].trim()) { lines.shift(); }
+      while (lines.length && !lines[lines.length - 1].trim()) { lines.pop(); }
+      if (!lines.length) { return; }
+      var idx = 0;
+      if (/^\d+$/.test(lines[0].trim())) { idx = 1; }
+      var tl = lines[idx];
+      if (!tl) { return; }
+      var m = tl.match(/^\s*([\d:.,]+)\s*-->\s*([\d:.,]+)/);
+      if (!m) { return; }
+      var start = parseTimestamp(m[1]);
+      var end = parseTimestamp(m[2]);
+      if (start === null) { return; }
+      cues.push({ start: start, end: end === null ? start : end, text: lines.slice(idx + 1).join('\n') });
+    });
+    return { format: 'srt', meta: {}, cues: cues };
+  }
+
+  /** WebVTT (.vtt) */
+  function parseVTT(text) {
+    var src = normalizeNL(stripBOM(text));
+    var blocks = src.split(/\n{2,}/);
+    var cues = [], meta = {};
+    blocks.forEach(function (block, bi) {
+      var lines = block.split('\n');
+      while (lines.length && !lines[0].trim()) { lines.shift(); }
+      while (lines.length && !lines[lines.length - 1].trim()) { lines.pop(); }
+      if (!lines.length) { return; }
+      var first = lines[0].trim();
+      if (/^WEBVTT/i.test(first)) {
+        // 头部块，可能带 Kind / Language 等元信息
+        lines.slice(1).forEach(function (l) {
+          var mm = l.match(/^([A-Za-z-]+)\s*:\s*(.+)$/);
+          if (mm) { meta[mm[1].toLowerCase()] = mm[2].trim(); }
+        });
+        return;
+      }
+      if (/^(NOTE|STYLE|REGION)\b/i.test(first)) { return; }
+      if (/^X-TIMESTAMP-MAP/i.test(first)) { return; }
+      var idx = 0;
+      if (lines[0].indexOf('-->') === -1) {
+        if (bi === 0) { return; } // 第一块不是 WEBVTT 也不是 cue，忽略
+        idx = 1;
+      }
+      var tl = lines[idx];
+      var m = tl && tl.match(/^\s*([\d:.,]+)\s*-->\s*([\d:.,]+)(?:\s+(.*))?$/);
+      if (!m) { return; }
+      var start = parseTimestamp(m[1]);
+      var end = parseTimestamp(m[2]);
+      if (start === null) { return; }
+      var cue = { start: start, end: end === null ? start : end, text: lines.slice(idx + 1).join('\n') };
+      if (idx === 1) { cue.id = lines[0].trim(); }
+      if (m[3]) { cue.settings = m[3].trim(); }
+      cues.push(cue);
+    });
+    return { format: 'vtt', meta: meta, cues: cues };
+  }
+
+  /** LRC 歌词 */
+  function parseLRC(text) {
+    var src = normalizeNL(stripBOM(text));
+    var lines = src.split('\n');
+    var meta = {}, cues = [];
+    var findTs = /\[(\d{1,3}):(\d{1,2}(?:[.:]\d{1,3})?)\]/g;
+    var cleanTs = /\[\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?\]/g;
+
+    lines.forEach(function (line) {
+      var t = line.trim();
+      if (!t) { return; }
+      var mm = t.match(/^\[(ti|ar|al|by|au|offset|length|re|ve|tool|encoding|artist|album|title)\s*:\s*([^\]]*)\]$/i);
+      if (mm) {
+        var mk = mm[1].toLowerCase(), mv = mm[2].trim();
+        if (mk === 'ti' || mk === 'title') { meta.title = mv; }
+        else if (mk === 'ar' || mk === 'artist') { meta.artist = mv; }
+        else if (mk === 'al' || mk === 'album') { meta.album = mv; }
+        else { meta[mk] = mv; }
+        return;
+      }
+      var stamps = [], m;
+      findTs.lastIndex = 0;
+      while ((m = findTs.exec(t)) !== null) {
+        stamps.push(parseInt(m[1], 10) * 60 + parseFloat(m[2].replace(':', '.')));
+      }
+      if (!stamps.length) { return; }
+      var body = t.replace(cleanTs, '')
+        .replace(/<\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?>/g, '') // 增强型逐字标签
+        .trim();
+      stamps.forEach(function (sec) { cues.push({ start: sec, end: null, text: body }); });
+    });
+
+    // offset 标签：正值表示歌词整体延后
+    var off = parseFloat(meta.offset);
+    if (!isNaN(off) && off !== 0) {
+      cues.forEach(function (c) { c.start += off / 1000; });
+    }
+    cues.sort(byStart);
+    return { format: 'lrc', meta: meta, cues: cues };
+  }
+
+  /** ASS / SSA */
+  function splitAssFields(str, count) {
+    if (count <= 1) { return [str]; }
+    var res = [], rest = str;
+    for (var i = 0; i < count - 1; i++) {
+      var idx = rest.indexOf(',');
+      if (idx === -1) { res.push(rest); rest = ''; }
+      else { res.push(rest.slice(0, idx)); rest = rest.slice(idx + 1); }
+    }
+    res.push(rest);
+    return res;
+  }
+
+  function parseASS(text, isSSA) {
+    var src = normalizeNL(stripBOM(text));
+    var lines = src.split('\n');
+    var meta = {}, cues = [];
+    var section = '';
+    var eventFmt = null;
+    var scriptInfo = [], styleLines = [];
+
+    lines.forEach(function (raw) {
+      var line = raw.replace(/[ \t]+$/, '');
+      var sec = line.match(/^\s*\[(.+?)\]\s*$/);
+      if (sec) {
+        section = sec[1].toLowerCase();
+        if (/^v4/.test(section)) { styleLines.push(line); }
+        else if (!/^events/.test(section)) { scriptInfo.push(line); }
+        return;
+      }
+      if (/^\s*;/.test(line)) { return; }
+
+      if (section === 'script info') {
+        scriptInfo.push(line);
+        var si = line.match(/^\s*([A-Za-z]+)\s*:\s*(.*)$/);
+        if (si) {
+          var key = si[1].toLowerCase();
+          if (key === 'title') { meta.title = si[2].trim(); }
+          if (key === 'scripttype' && /v4\.00\+/i.test(si[2])) { meta.scriptType = 'ass'; }
+        }
+        return;
+      }
+      if (/^v4/.test(section)) { styleLines.push(line); return; }
+
+      if (section === 'events') {
+        if (/^\s*Format\s*:/i.test(line)) {
+          eventFmt = line.replace(/^\s*Format\s*:/i, '').split(',').map(function (s) { return s.trim().toLowerCase(); });
+          return;
+        }
+        var ev = line.match(/^\s*(Dialogue|Comment)\s*:\s?(.*)$/i);
+        if (!ev || /^comment/i.test(ev[1])) { return; }
+        var fmt = eventFmt;
+        if (!fmt) {
+          fmt = meta.scriptType === 'ssa' || isSSA
+            ? ['marked', 'start', 'end', 'style', 'name', 'marginl', 'marginr', 'marginv', 'effect', 'text']
+            : ['layer', 'start', 'end', 'style', 'name', 'marginl', 'marginr', 'marginv', 'effect', 'text'];
+        }
+        var body = ev[2];
+        if (!eventFmt && /^\s*Marked\s*=/i.test(body)) {
+          fmt = ['marked', 'start', 'end', 'style', 'name', 'marginl', 'marginr', 'marginv', 'effect', 'text'];
+        }
+        var parts = splitAssFields(body, fmt.length);
+        var obj = {};
+        fmt.forEach(function (k, i) { obj[k] = parts[i] === undefined ? '' : parts[i]; });
+        var start = parseTimestamp(obj.start);
+        var end = parseTimestamp(obj.end);
+        if (start === null) { return; }
+        cues.push({
+          start: start,
+          end: end === null ? start : end,
+          text: assTextToPlain(obj.text === undefined ? '' : obj.text),
+          style: (obj.style || '').trim() || undefined
+        });
+        return;
+      }
+    });
+
+    cues.sort(byStart);
+    return {
+      format: isSSA ? 'ssa' : 'ass',
+      meta: meta,
+      cues: cues,
+      assScriptInfo: scriptInfo,
+      assStyles: styleLines
+    };
+  }
+
+  /** SUB —— MicroDVD（基于帧号 {起始帧}{结束帧}文本） */
+  function parseMicroDVD(text) {
+    var src = normalizeNL(stripBOM(text));
+    var lines = src.split('\n');
+    var cues = [], declaredFps = null;
+    lines.forEach(function (line) {
+      var m = line.match(/^\s*\{(\d+)\}\s*\{(\d+)\}\s*([\s\S]*)$/);
+      if (!m) { return; }
+      var s = parseInt(m[1], 10), e = parseInt(m[2], 10), rest = m[3];
+      if (s <= 1 && e <= 1 && /^\s*\d+(?:\.\d+)?\s*$/.test(rest)) {
+        declaredFps = parseFloat(rest.trim());
+        return;
+      }
+      cues.push({ startFrame: s, endFrame: e, text: rest.replace(/\|/g, '\n').replace(/\{[^}]*\}/g, ''), _frame: true });
+    });
+    return { format: 'sub_microdvd', meta: { fps: declaredFps }, cues: cues, _frames: true, _fps: declaredFps };
+  }
+
+  /** SUB —— SubViewer 2.0 / SBV */
+  function parseSubViewer(text) {
+    var src = normalizeNL(stripBOM(text));
+    var lines = src.split('\n');
+    var cues = [], meta = {};
+    var tsRe = /^\s*(\d{1,3}:\d{1,2}:\d{1,2}[.,]\d{1,3})\s*,\s*(\d{1,3}:\d{1,2}:\d{1,2}[.,]\d{1,3})\s*$/;
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      var mt = line.match(/^\s*\[(TITLE|AUTHOR|SOURCE|PRG|FILEPATH|DELAY|CD TRACK)\]\s*(.*)$/i);
+      if (mt) { meta[mt[1].toLowerCase()] = mt[2].trim(); continue; }
+      var m = line.match(tsRe);
+      if (!m) { continue; }
+      var start = parseTimestamp(m[1]);
+      var end = parseTimestamp(m[2]);
+      var buf = [];
+      var j = i + 1;
+      for (; j < lines.length; j++) {
+        var nl = lines[j];
+        if (!nl.trim()) { break; }
+        if (tsRe.test(nl)) { break; }
+        if (/^\s*\{?\d+\}?\s*\{?\d+\}?/.test(nl)) { break; }
+        if (/^\s*\[(INFORMATION|SUBTITLE|END INFORMATION|COLF|STYLE|SIZE|FONT|[A-Z ]+)\]\s*/.test(nl) && /^\[[A-Z ]+\]/.test(nl.trim())) { break; }
+        buf.push(nl);
+      }
+      cues.push({
+        start: start === null ? 0 : start,
+        end: end === null ? (start === null ? 0 : start) : end,
+        text: buf.join('\n').replace(/\[br\]/gi, '\n')
+      });
+      i = j - 1;
+    }
+    return { format: 'sub_subviewer', meta: meta, cues: cues };
+  }
+
+  /* ============================================================
+   * 格式自动识别
+   * ============================================================ */
+  function detectFormat(text) {
+    var raw = stripBOM(String(text || ''));
+    var s = normalizeNL(raw);
+    if (!s.trim()) { return 'srt'; }
+    if (/^\uFEFF?\s*WEBVTT/.test(raw)) { return 'vtt'; }
+
+    var head = s.slice(0, 4000);
+
+    // ASS / SSA
+    if (/\[Script Info\]/i.test(s) || /\[V4\+?\s*Styles?\]/i.test(s) || /^\s*Dialogue\s*:/im.test(s) || /^\s*\[Events\]/im.test(s)) {
+      if (/ScriptType\s*:\s*v4\.00\+/i.test(head) || /\[V4\+\s*Styles?\]/i.test(s)) { return 'ass'; }
+      if (/ScriptType\s*:\s*v4\.00(?!\+)/i.test(head) || /\[V4\s*Styles?\]/i.test(s)) { return 'ssa'; }
+      if (/^\s*Marked\s*=/im.test(head)) { return 'ssa'; }
+      return 'ass';
+    }
+
+    // MicroDVD
+    if (/\{\d+\}\s*\{\d+\}/.test(head)) { return 'sub_microdvd'; }
+
+    // SubViewer / SBV
+    if (/^\s*\[INFORMATION\]/im.test(head) || /^\s*\[SUBTITLE\]/im.test(head)) { return 'sub_subviewer'; }
+    if (/^\s*\d{1,3}:\d{1,2}:\d{1,2}[.,]\d{2,3}\s*,\s*\d{1,3}:\d{1,2}:\d{1,2}[.,]\d{2,3}\s*$/m.test(head)) { return 'sub_subviewer'; }
+
+    // LRC
+    var lrcCount = (head.match(/^\s*\[\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?\]/gm) || []).length;
+    var vttLike = (head.match(/^\s*[\d:.,]{4,}\s*-->\s*[\d:.,]{4,}/gm) || []).length;
+    if (lrcCount >= 1 && vttLike === 0) { return 'lrc'; }
+    if (vttLike > 0) {
+      // 时间戳用逗号 → SRT，用点 → VTT（无 WEBVTT 头也算）
+      var arrow = head.match(/^\s*[\d:.,]{4,}\s*-->\s*([\d:.,]{4,})/m);
+      if (arrow && arrow[0].indexOf(',') === -1 && arrow[0].indexOf('.') > -1) { return 'vtt'; }
+      return 'srt';
+    }
+
+    // 纯 [mm:ss] 形式
+    if (lrcCount > 0) { return 'lrc'; }
+    return 'srt';
+  }
+
+  /* ============================================================
+   * 生成器
+   * ============================================================ */
+  function prepareCues(cues, opts) {
+    opts = opts || {};
+    var offset = parseFloat(opts.timeOffset) || 0;
+    var out = [];
+    (cues || []).forEach(function (c) {
+      var text = trimText(c.text === undefined || c.text === null ? '' : c.text);
+      if (opts.stripMarkup !== false) { text = trimText(stripMarkup(text)); }
+      if (!text && !opts.keepEmpty) { return; }
+      var start = c.start + offset;
+      var end = (c.end === null || c.end === undefined ? null : c.end + offset);
+      if (start < 0) { start = 0; }
+      out.push({ start: start, end: end, text: text, style: c.style });
+    });
+    out.sort(byStart);
+    return out;
+  }
+
+  /** 结束时间缺失时推算（LRC → 其他格式的关键） */
+  function fillEnds(cues, opts) {
+    opts = opts || {};
+    var maxGap = opts.maxGap === undefined ? 8 : opts.maxGap;
+    var defDur = opts.defaultDuration === undefined ? 4 : opts.defaultDuration;
+    for (var i = 0; i < cues.length; i++) {
+      var c = cues[i];
+      if (c.end === null || c.end === undefined || !(c.end > c.start)) {
+        var next = cues[i + 1];
+        if (next && next.start > c.start && (next.start - c.start) <= maxGap) { c.end = next.start; }
+        else { c.end = c.start + defDur; }
+      }
+      if (c.end <= c.start) { c.end = c.start + Math.min(1, defDur); }
+    }
+    return cues;
+  }
+
+  function toSRT(cues, opts) {
+    cues = fillEnds(prepareCues(cues, opts), opts);
+    return cues.map(function (c, i) {
+      return (i + 1) + '\n' + fmtSRT(c.start) + ' --> ' + fmtSRT(c.end) + '\n' + c.text;
+    }).join('\n\n') + (cues.length ? '\n' : '');
+  }
+
+  function toVTT(doc, opts) {
+    var cues = fillEnds(prepareCues(doc.cues, opts), opts);
+    var out = ['WEBVTT', ''];
+    if (doc.meta && doc.meta.title) { out = ['WEBVTT', 'Title: ' + doc.meta.title, '']; }
+    cues.forEach(function (c) {
+      out.push(fmtVTT(c.start) + ' --> ' + fmtVTT(c.end));
+      out.push(c.text);
+      out.push('');
+    });
+    return out.join('\n').replace(/\n+$/, '\n');
+  }
+
+  function toLRC(doc, opts) {
+    opts = opts || {};
+    var cues = prepareCues(doc.cues, opts);
+    var meta = doc.meta || {};
+    var sep = opts.lrcLineBreak === 'slash' ? ' / ' : ' ';
+    var digits = opts.lrcMillisecond ? 3 : 2;
+    var head = [];
+    if (meta.title) { head.push('[ti:' + meta.title + ']'); }
+    if (meta.artist) { head.push('[ar:' + meta.artist + ']'); }
+    if (meta.album) { head.push('[al:' + meta.album + ']'); }
+    if (meta.by) { head.push('[by:' + meta.by + ']'); }
+    if (opts.lrcToolTag) { head.push('[re:SubConv 字幕格式转换器]'); }
+
+    var body = [];
+    if (opts.lrcMergeSame) {
+      var map = {}, order = [];
+      cues.forEach(function (c) {
+        var key = c.text;
+        if (!map[key]) { map[key] = []; order.push(key); }
+        map[key].push(c.start);
+      });
+      order.forEach(function (key) {
+        var stamps = map[key].map(function (s) { return '[' + fmtLRC(s, digits) + ']'; }).join('');
+        body.push(stamps + key.replace(/\n+/g, sep).trim());
+      });
+    } else {
+      cues.forEach(function (c) {
+        body.push('[' + fmtLRC(c.start, digits) + ']' + c.text.replace(/\n+/g, sep).trim());
+      });
+    }
+    return head.concat(body).join('\n') + '\n';
+  }
+
+  function toASS(doc, opts, isSSA) {
+    opts = opts || {};
+    var cues = fillEnds(prepareCues(doc.cues, opts), opts);
+    var meta = doc.meta || {};
+    var reuse = opts.reuseStyles && doc.assStyles && doc.assStyles.length &&
+                ((isSSA && doc.format === 'ssa') || (!isSSA && doc.format === 'ass'));
+    var out = [];
+
+    if (reuse && doc.assScriptInfo && doc.assScriptInfo.length) {
+      out.push('[Script Info]');
+      doc.assScriptInfo.forEach(function (l) { if (!/^\s*\[/.test(l)) { out.push(l); } });
+    } else {
+      out.push('[Script Info]');
+      out.push('; 由 SubConv 字幕格式转换器生成');
+      out.push('Title: ' + (meta.title || 'Subtitle'));
+      out.push('ScriptType: ' + (isSSA ? 'v4.00' : 'v4.00+'));
+      out.push('WrapStyle: 0');
+      out.push('ScaledBorderAndShadow: yes');
+      out.push('PlayResX: 1280');
+      out.push('PlayResY: 720');
+    }
+    out.push('');
+
+    if (reuse) {
+      var sect = '';
+      doc.assStyles.forEach(function (l) {
+        if (/^\s*\[/.test(l)) { sect = l; out.push(l); }
+        else { out.push(l); }
+      });
+    } else if (isSSA) {
+      out.push('[V4 Styles]');
+      out.push('Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, TertiaryColour, BackColour, Bold, Italic, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, AlphaLevel, Encoding');
+      out.push('Style: Default,Arial,48,&HFFFFFF,&H0000FF,&H000000,&H000000,-1,0,1,2,2,2,10,10,10,0,1');
+    } else {
+      out.push('[V4+ Styles]');
+      out.push('Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding');
+      out.push('Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1');
+    }
+    out.push('');
+    out.push('[Events]');
+    if (isSSA) {
+      out.push('Format: Marked, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text');
+      cues.forEach(function (c) {
+        out.push('Dialogue: Marked=0,' + fmtASS(c.start) + ',' + fmtASS(c.end) + ',' +
+                 (c.style || 'Default') + ',,0,0,0,,' + plainToAssText(c.text));
+      });
+    } else {
+      out.push('Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text');
+      cues.forEach(function (c) {
+        out.push('Dialogue: 0,' + fmtASS(c.start) + ',' + fmtASS(c.end) + ',' +
+                 (c.style || 'Default') + ',,0,0,0,,' + plainToAssText(c.text));
+      });
+    }
+    return out.join('\n') + '\n';
+  }
+
+  function toMicroDVD(doc, opts) {
+    opts = opts || {};
+    var fps = parseFloat(opts.fps);
+    if (!(fps > 0)) { fps = 23.976; }
+    var cues = fillEnds(prepareCues(doc.cues, opts), opts);
+    var out = [];
+    if (opts.microdvdFpsLine !== false) { out.push('{1}{1}' + fps); }
+    cues.forEach(function (c) {
+      var s = Math.max(0, Math.round(c.start * fps));
+      var e = Math.max(s + 1, Math.round(c.end * fps));
+      out.push('{' + s + '}{' + e + '}' + c.text.replace(/\n+/g, '|'));
+    });
+    return out.join('\n') + '\n';
+  }
+
+  function toSubViewer(doc, opts) {
+    var cues = fillEnds(prepareCues(doc.cues, opts), opts);
+    var meta = doc.meta || {};
+    var out = ['[INFORMATION]', '[TITLE]' + (meta.title || ''), '[AUTHOR]' + (meta.author || ''),
+               '[SOURCE]SubConv', '[PRG]SubConv 字幕格式转换器', '[END INFORMATION]', '[SUBTITLE]'];
+    cues.forEach(function (c, i) {
+      if (i > 0) { out.push(''); }
+      out.push(fmtSubViewer(c.start) + ',' + fmtSubViewer(c.end));
+      out.push(c.text.replace(/\n+/g, '[br]'));
+    });
+    return out.join('\n') + '\n';
+  }
+
+  /* ============================================================
+   * 统一入口
+   * ============================================================ */
+  function parse(text, from) {
+    var fmt = from && from !== 'auto' ? from : detectFormat(text);
+    switch (fmt) {
+      case 'srt': return parseSRT(text);
+      case 'vtt': return parseVTT(text);
+      case 'lrc': return parseLRC(text);
+      case 'ass': return parseASS(text, false);
+      case 'ssa': return parseASS(text, true);
+      case 'sub_microdvd': return parseMicroDVD(text);
+      case 'sub_subviewer': return parseSubViewer(text);
+      default: return parseSRT(text);
+    }
+  }
+
+  function serialize(doc, to, opts) {
+    opts = opts || {};
+    switch (to) {
+      case 'srt': return toSRT(doc.cues, opts);
+      case 'vtt': return toVTT(doc, opts);
+      case 'lrc': return toLRC(doc, opts);
+      case 'ass': return toASS(doc, opts, false);
+      case 'ssa': return toASS(doc, opts, true);
+      case 'sub_microdvd': return toMicroDVD(doc, opts);
+      case 'sub_subviewer': return toSubViewer(doc, opts);
+      default: throw new Error('不支持的目标格式：' + to);
+    }
+  }
+
+  /** 完整转换流程 */
+  function convert(text, opts) {
+    opts = opts || {};
+    if (!text || !String(text).trim()) {
+      return { ok: false, error: '内容为空，请先粘贴字幕内容或选择文件。' };
+    }
+    var from = opts.from && opts.from !== 'auto' ? opts.from : detectFormat(text);
+    var doc;
+    try { doc = parse(text, from); }
+    catch (e) { return { ok: false, error: '解析失败：' + e.message }; }
+
+    if (!doc.cues.length) {
+      return { ok: false, error: '没有解析到任何字幕行。可能是格式选错了——识别为「' + formatInfo(from).name + '」，请手动指定正确的源格式后重试。' };
+    }
+
+    var warnings = [];
+    var to = opts.to || 'lrc';
+
+    // MicroDVD 源：帧 → 秒
+    if (doc._frames) {
+      var fps = parseFloat(opts.fps);
+      if (!(fps > 0)) { fps = doc._fps || 23.976; }
+      doc.cues.forEach(function (c) {
+        c.start = c.startFrame / fps;
+        c.end = c.endFrame / fps;
+      });
+      warnings.push('源文件为 MicroDVD 帧号格式，已按 ' + fps + ' fps 换算为时间轴。' +
+                    (opts.fps ? '' : (doc._fps ? '（帧率取自文件内声明）' : '（未检测到帧率，使用默认 23.976）')));
+    }
+    if (to === 'sub_microdvd') {
+      var outFps = parseFloat(opts.fps) > 0 ? parseFloat(opts.fps) : 23.976;
+      warnings.push('MicroDVD 使用帧号计时，已按 ' + outFps + ' fps 换算；帧率不一致会导致时间偏移。');
+    }
+    if (from === 'lrc' && to !== 'lrc') {
+      warnings.push('LRC 只有每句的开始时间、没有结束时间，已自动推算：优先取下一句的开始时间（间隔不超过 8 秒），否则按默认 4 秒时长。');
+    }
+    if (to === 'lrc') {
+      warnings.push('LRC 不支持结束时间与样式，已丢弃这类信息（每行开头即为该句的出现时刻）。');
+    }
+    if ((from === 'ass' || from === 'ssa') && to !== 'ass' && to !== 'ssa') {
+      warnings.push('已剥离 ASS/SSA 的样式与特效标签，仅保留纯文本。');
+    }
+    if (from === 'sub_microdvd' && doc.meta && doc.meta.fps === null && !opts.fps) {
+      warnings.push('源 .sub 文件内没有帧率声明，请核对帧率设置是否正确。');
+    }
+    var emptyCount = 0;
+    doc.cues.forEach(function (c) {
+      var t = c.text === undefined || c.text === null ? '' : String(c.text);
+      if (opts.stripMarkup !== false) { t = stripMarkup(t); }
+      if (!t.trim()) { emptyCount++; }
+    });
+    if (emptyCount > 0) { warnings.push('有 ' + emptyCount + ' 条空白字幕行已被忽略。'); }
+
+    var output;
+    try { output = serialize(doc, to, opts); }
+    catch (e) { return { ok: false, error: '生成失败：' + e.message }; }
+
+    var cues = fillEnds(prepareCues(doc.cues, opts), opts);
+    return {
+      ok: true,
+      from: from,
+      to: to,
+      output: output,
+      cues: cues,
+      meta: doc.meta,
+      warnings: warnings,
+      stats: {
+        count: cues.length,
+        first: cues.length ? cues[0].start : 0,
+        last: cues.length ? cues[cues.length - 1].end : 0
+      }
+    };
+  }
+
+  return {
+    VERSION: '1.0.0',
+    FORMATS: FORMATS,
+    formatInfo: formatInfo,
+    detectFormat: detectFormat,
+    parse: parse,
+    serialize: serialize,
+    convert: convert,
+    utils: {
+      parseTimestamp: parseTimestamp,
+      fmtSRT: fmtSRT,
+      fmtVTT: fmtVTT,
+      fmtASS: fmtASS,
+      fmtLRC: fmtLRC,
+      fmtSubViewer: fmtSubViewer,
+      stripMarkup: stripMarkup,
+      fillEnds: fillEnds
+    }
+  };
+});
+
+</script>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var fromSel = $('fromSel'), toSel = $('toSel'), input = $('input'), output = $('output');
+  var statusEl = $('status'), warnings = $('warnings'), warningList = $('warningList');
+  var inStat = $('inStat'), outStat = $('outStat'), outInfo = $('outInfo'), detectHint = $('detectHint');
+  var tableBody = $('tableBody'), tableWrap = $('tableWrap'), tabs = $('tabs');
+  var fpsField = $('fpsField');
+  var current = null;       // 最近一次成功转换的结果
+  var toTouched = false;    // 用户是否手动改过目标格式
+  var loadedFileName = '';  // 拖入/选择的文件名（用于下载命名）
+
+  /* ---------- 初始化下拉框 ---------- */
+  function fillSelect(sel, includeAuto) {
+    if (includeAuto) {
+      var o = document.createElement('option');
+      o.value = 'auto'; o.textContent = '自动识别（推荐）';
+      sel.appendChild(o);
+    }
+    SubConv.FORMATS.forEach(function (f) {
+      var op = document.createElement('option');
+      op.value = f.id;
+      op.textContent = f.name + '（.' + f.ext + '）';
+      op.title = f.desc;
+      sel.appendChild(op);
+    });
+  }
+  fillSelect(fromSel, true);
+  fillSelect(toSel, false);
+  fromSel.value = 'auto';
+  toSel.value = 'lrc';
+
+  /* ---------- 选项收集 ---------- */
+  function collectOptions() {
+    var join = $('joinSel').value;
+    return {
+      from: fromSel.value,
+      to: toSel.value,
+      fps: parseFloat($('fpsInput').value),
+      timeOffset: parseFloat($('offsetInput').value) || 0,
+      stripMarkup: $('optStrip').checked,
+      lrcMergeSame: $('optMerge').checked,
+      lrcMillisecond: $('optMs3').checked,
+      lrcLineBreak: join === 'slash' ? 'slash' : 'space',
+      microdvdFpsLine: true,
+      reuseStyles: true
+    };
+  }
+
+  function detectedFormat() {
+    var t = input.value;
+    if (!t.trim()) { return null; }
+    return SubConv.detectFormat(t);
+  }
+
+  /* ---------- 界面状态 ---------- */
+  function updateInputStat() {
+    var t = input.value;
+    inStat.textContent = t ? (t.split('\n').length + ' 行 · ' + t.length + ' 字符') : '0 字符';
+    var d = detectedFormat();
+    if (!d) { detectHint.textContent = ''; detectHint.className = ''; return; }
+    var info = SubConv.formatInfo(d);
+    detectHint.textContent = '已识别：' + info.name;
+    detectHint.className = 'hint-ok';
+    // 目标格式智能默认：源是 LRC 就转成 SRT，否则转成 LRC
+    if (!toTouched) {
+      var want = (d === 'lrc') ? 'srt' : 'lrc';
+      if (toSel.value !== want) { toSel.value = want; }
+    }
+    updateFpsVisibility(d);
+  }
+
+  function updateFpsVisibility(detected) {
+    var d = detected || detectedFormat();
+    var need = (fromSel.value === 'sub_microdvd' || toSel.value === 'sub_microdvd' || d === 'sub_microdvd');
+    fpsField.style.display = need ? '' : 'none';
+  }
+
+  function setStatus(msg, type) {
+    statusEl.textContent = msg || '';
+    statusEl.className = 'status' + (type ? ' ' + type : '');
+  }
+
+  function showWarnings(list) {
+    warningList.innerHTML = '';
+    if (!list || !list.length) { warnings.className = 'warnings'; return; }
+    list.forEach(function (w) {
+      var li = document.createElement('li');
+      li.textContent = w;
+      warningList.appendChild(li);
+    });
+    warnings.className = 'warnings show';
+  }
+
+  function fmtClock(sec) {
+    sec = Math.max(0, sec || 0);
+    var t = Math.round(sec * 1000);
+    var h = Math.floor(t / 3600000), m = Math.floor(t % 3600000 / 60000), s = Math.floor(t % 60000 / 1000);
+    var ms = t % 1000;
+    return (h ? h + ':' : '') + (h ? String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0') + '.' + String(ms).padStart(3, '0');
+  }
+  function fmtDuration(sec) {
+    sec = Math.max(0, sec || 0);
+    var m = Math.floor(sec / 60), s = Math.round(sec % 60);
+    if (m >= 60) { return Math.floor(m / 60) + ' 小时 ' + (m % 60) + ' 分'; }
+    return m > 0 ? m + ' 分 ' + s + ' 秒' : s + ' 秒';
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  /* ---------- 转换 ---------- */
+  function doConvert(silent) {
+    var opts = collectOptions();
+    var res = SubConv.convert(input.value, opts);
+
+    if (!res.ok) {
+      current = null;
+      output.value = '';
+      tableBody.innerHTML = '';
+      outStat.textContent = '';
+      outInfo.textContent = '';
+      showWarnings(null);
+      setStatus(res.error, 'error');
+      $('downloadBtn').disabled = true;
+      $('copyBtn').disabled = true;
+      return;
+    }
+
+    current = res;
+    output.value = res.output;
+    renderTable(res.cues);
+    var info = SubConv.formatInfo(res.to);
+    outStat.textContent = '共 ' + res.stats.count + ' 条字幕';
+    outInfo.textContent = fmtClock(res.stats.first) + ' → ' + fmtClock(res.stats.last) +
+                          '（跨度 ' + fmtDuration(res.stats.last - res.stats.first) + '）';
+    setStatus('转换成功：' + SubConv.formatInfo(res.from).name + ' → ' + info.name +
+              '，共 ' + res.stats.count + ' 条字幕', 'success');
+    showWarnings(res.warnings);
+    $('downloadBtn').disabled = false;
+    $('copyBtn').disabled = false;
+  }
+
+  function renderTable(cues) {
+    var html = '';
+    for (var i = 0; i < cues.length; i++) {
+      var c = cues[i];
+      html += '<tr><td class="num">' + (i + 1) + '</td>' +
+              '<td class="time">' + escapeHtml(fmtClock(c.start)) + '</td>' +
+              '<td class="time">' + escapeHtml(fmtClock(c.end)) + '</td>' +
+              '<td class="time">' + (c.end - c.start).toFixed(2) + 's</td>' +
+              '<td class="text">' + escapeHtml(c.text) + '</td></tr>';
+    }
+    if (!cues.length) { html = '<tr><td colspan="5" style="color:#94a3b8">没有字幕行</td></tr>'; }
+    tableBody.innerHTML = html;
+    tabs.className = 'tabs show';
+  }
+
+  /* ---------- 标签页切换 ---------- */
+  Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (btn) {
+    btn.addEventListener('click', function () {
+      Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var isTable = btn.getAttribute('data-tab') === 'table';
+      tableWrap.hidden = !isTable;
+      output.style.display = isTable ? 'none' : '';
+    });
+  });
+
+  /* ---------- 下载 / 复制 ---------- */
+  $('downloadBtn').disabled = true;
+  $('copyBtn').disabled = true;
+
+  function baseName() {
+    if (loadedFileName) {
+      return loadedFileName.replace(/\.[^.]+$/, '') || 'subtitle';
+    }
+    return 'subtitle';
+  }
+
+  $('downloadBtn').addEventListener('click', function () {
+    if (!current) { return; }
+    var info = SubConv.formatInfo(current.to);
+    var text = current.output;
+    var mime = 'text/plain;charset=utf-8';
+    if ($('optBom').checked) { text = '\uFEFF' + text; }
+    var blob = new Blob([text], { type: mime });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = baseName() + '.' + info.ext;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      URL.revokeObjectURL(a.href);
+      document.body.removeChild(a);
+    }, 100);
+    setStatus('已下载：' + a.download + '（' + SubConv.formatInfo(current.to).name + ' 格式）', 'success');
+  });
+
+  $('copyBtn').addEventListener('click', function () {
+    if (!current) { return; }
+    var text = current.output;
+    function done() { setStatus('已复制到剪贴板', 'success'); }
+    function fallback() {
+      output.removeAttribute('readonly');
+      output.select();
+      try { document.execCommand('copy'); done(); }
+      catch (e) { setStatus('复制失败，请手动全选结果框内容后复制', 'error'); }
+      output.setAttribute('readonly', 'readonly');
+      window.getSelection().removeAllRanges();
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else { fallback(); }
+  });
+
+  /* ---------- 文件读取（含编码兜底） ---------- */
+  function decodeBuffer(buf) {
+    var bytes = new Uint8Array(buf);
+    if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+      return { text: new TextDecoder('utf-16le').decode(buf), enc: 'UTF-16LE' };
+    }
+    if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+      return { text: new TextDecoder('utf-16be').decode(buf), enc: 'UTF-16BE' };
+    }
+    // 先按 UTF-8 严格解码；失败说明是 GBK/GB18030 等中文老编码
+    try {
+      return { text: new TextDecoder('utf-8', { fatal: true }).decode(buf), enc: 'UTF-8' };
+    } catch (e) {
+      try {
+        return { text: new TextDecoder('gb18030').decode(buf), enc: 'GB18030（自动兼容 GBK）' };
+      } catch (e2) {
+        return { text: new TextDecoder('utf-8').decode(buf), enc: 'UTF-8（有乱码）' };
+      }
+    }
+  }
+
+  function loadFile(file) {
+    if (!file) { return; }
+    loadedFileName = file.name || '';
+    var reader = new FileReader();
+    reader.onload = function () {
+      var r = decodeBuffer(reader.result);
+      input.value = r.text;
+      updateInputStat();
+      var d = detectedFormat();
+      setStatus('已载入「' + file.name + '」· 编码 ' + r.enc + (d ? ' · 识别为 ' + SubConv.formatInfo(d).name : ''), 'success');
+      doConvert(true);
+    };
+    reader.onerror = function () { setStatus('文件读取失败，请改用粘贴方式', 'error'); };
+    reader.readAsArrayBuffer(file);
+  }
+
+  $('pickBtn').addEventListener('click', function () { $('fileInput').click(); });
+  $('fileInput').addEventListener('change', function (e) {
+    if (e.target.files && e.target.files[0]) { loadFile(e.target.files[0]); }
+    e.target.value = '';
+  });
+
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    input.addEventListener(ev, function (e) {
+      e.preventDefault();
+      input.setAttribute('dragover', '');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    input.addEventListener(ev, function (e) {
+      e.preventDefault();
+      input.removeAttribute('dragover');
+    });
+  });
+  input.addEventListener('drop', function (e) {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) { loadFile(e.dataTransfer.files[0]); }
+  });
+
+  /* ---------- 其他交互 ---------- */
+  $('clearBtn').addEventListener('click', function () {
+    input.value = '';
+    output.value = '';
+    current = null;
+    loadedFileName = '';
+    tableBody.innerHTML = '';
+    outStat.textContent = ''; outInfo.textContent = '';
+    tableWrap.hidden = true; tabs.className = 'tabs';
+    output.style.display = '';
+    setStatus('');
+    showWarnings(null);
+    $('downloadBtn').disabled = true;
+    $('copyBtn').disabled = true;
+    updateInputStat();
+    input.focus();
+  });
+
+  $('swapBtn').addEventListener('click', function () {
+    if (!current) { setStatus('先转换一次，才能把结果换到输入框', 'error'); return; }
+    var f = current.from, t = current.to;
+    input.value = current.output;
+    fromSel.value = t;
+    toTouched = true;
+    toSel.value = f;
+    updateInputStat();
+    doConvert(true);
+  });
+
+  fromSel.addEventListener('change', function () { updateFpsVisibility(); });
+  toSel.addEventListener('change', function () {
+    toTouched = true;
+    updateFpsVisibility();
+    if (current) { doConvert(true); }
+  });
+
+  ['input', 'change'].forEach(function (ev) {
+    ['optStrip', 'optMerge', 'optMs3', 'optBom', 'fpsInput', 'offsetInput', 'joinSel'].forEach(function (id) {
+      $(id).addEventListener(ev, function () { if (current) { doConvert(true); } });
+    });
+  });
+
+  var timer = null;
+  input.addEventListener('input', function () {
+    updateInputStat();
+    clearTimeout(timer);
+    timer = setTimeout(function () { if (current && input.value.trim()) { doConvert(true); } }, 450);
+  });
+
+  $('convertBtn').addEventListener('click', function () { doConvert(false); });
+
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); doConvert(false); }
+  });
+
+  updateInputStat();
+  updateFpsVisibility();
+  input.focus();
+})();
+</script>
+</body>
+</html>

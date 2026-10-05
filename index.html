@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>zhatools · 离线小工具集</title>
+<meta name="description" content="一组完全离线运行的浏览器小工具：二维码生成器、字幕格式转换器。单文件、无依赖、不上传数据。">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+                 "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(160deg, #eef2ff 0%, #f8fafc 55%, #f0fdf4 100%);
+    min-height: 100vh;
+    padding: 64px 20px 56px;
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { width: 100%; max-width: 880px; margin: 0 auto; }
+
+  header { text-align: center; }
+
+  h1 {
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(120deg, #1e293b 0%, #2563eb 60%, #0d9488 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .tagline {
+    margin-top: 14px;
+    font-size: 15px;
+    color: #475569;
+    line-height: 1.7;
+  }
+
+  .badges { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+
+  .badge {
+    padding: 4px 13px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 600;
+    background: #dcfce7;
+    color: #15803d;
+  }
+  .badge.gray { background: #f1f5f9; color: #475569; }
+  .badge.blue { background: #dbeafe; color: #1d4ed8; }
+
+  .grid {
+    margin-top: 44px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  @media (min-width: 720px) { .grid { grid-template-columns: 1fr 1fr; } }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    padding: 26px 24px 22px;
+    background: #ffffff;
+    border: 1.5px solid #eef2f7;
+    border-radius: 20px;
+    box-shadow: 0 8px 30px rgba(30, 41, 59, 0.07);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.16s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 40px rgba(30, 41, 59, 0.13);
+    border-color: #dbeafe;
+  }
+
+  .icon {
+    width: 46px; height: 46px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 13px;
+    margin-bottom: 16px;
+  }
+  .icon.blue { background: #e0edff; }
+  .icon.teal { background: #ccfbf1; }
+  .icon.gray { background: #f1f5f9; }
+  .icon svg { width: 25px; height: 25px; }
+
+  .card h2 { font-size: 18px; font-weight: 700; letter-spacing: 0.1px; }
+
+  .card p {
+    margin-top: 9px;
+    font-size: 13.5px;
+    line-height: 1.75;
+    color: #64748b;
+    flex: 1;
+  }
+
+  .chips { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-size: 11.5px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    background: #f8fafc;
+    border: 1px solid #eef2f7;
+    color: #64748b;
+  }
+
+  .open {
+    margin-top: 18px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #2563eb;
+  }
+  .card:hover .open { gap: 10px; }
+  .open span { transition: transform 0.16s ease; }
+
+  .card.soon {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    border-style: dashed;
+    border-color: #e2e8f0;
+    box-shadow: none;
+    background: rgba(255, 255, 255, 0.6);
+    cursor: default;
+    min-height: 232px;
+  }
+  .card.soon:hover { transform: none; box-shadow: none; border-color: #e2e8f0; }
+  .card.soon h2 { font-size: 15px; font-weight: 600; color: #94a3b8; }
+  .card.soon p { margin-top: 8px; font-size: 12.5px; color: #a8b3c2; flex: 0; }
+
+  footer {
+    margin-top: 46px;
+    text-align: center;
+    font-size: 12.5px;
+    line-height: 1.9;
+    color: #94a3b8;
+  }
+  footer a { color: #64748b; text-decoration: none; border-bottom: 1px solid #e2e8f0; }
+  footer a:hover { color: #2563eb; border-color: #bfdbfe; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>zhatools</h1>
+    <p class="tagline">
+      一组小巧的浏览器工具，打开即用。<br>
+      所有代码都跑在你自己的浏览器里 —— 不联网、不上传，断网也能干活。
+    </p>
+    <div class="badges">
+      <span class="badge">100% 离线运行</span>
+      <span class="badge blue">单文件 · 零依赖</span>
+      <span class="badge gray">无需安装</span>
+    </div>
+  </header>
+
+  <main class="grid">
+
+    <a class="card" href="qr/index.html">
+      <div class="icon blue">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+          <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+          <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+          <path d="M14 14h3v3h-3z"/>
+          <path d="M20 14v1M20 20h1M17 20h-3v-1"/>
+        </svg>
+      </div>
+      <h2>二维码生成器</h2>
+      <p>把文字、网址、联系方式一键变成二维码图片。支持中文与 Emoji，可下载 PNG 或直接复制到剪贴板。</p>
+      <div class="chips">
+        <span class="chip">中文 / Emoji</span>
+        <span class="chip">下载 PNG</span>
+        <span class="chip">复制到剪贴板</span>
+      </div>
+      <div class="open">打开工具 <span>→</span></div>
+    </a>
+
+    <a class="card" href="subtitle/index.html">
+      <div class="icon teal">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/>
+          <path d="M6.5 14.5h4M13.5 14.5h4"/>
+          <path d="M6.5 10.5h11"/>
+        </svg>
+      </div>
+      <h2>字幕格式转换器</h2>
+      <p>VTT、SRT、LRC、ASS、SSA、SUB 七种字幕格式任意互转，核心支持 VTT → LRC 歌词。</p>
+      <div class="chips">
+        <span class="chip">VTT → LRC</span>
+        <span class="chip">7 种格式互转</span>
+        <span class="chip">中文编码兜底</span>
+      </div>
+      <div class="open">打开工具 <span>→</span></div>
+    </a>
+
+    <div class="card soon">
+      <div class="icon gray">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+      </div>
+      <h2>更多工具陆续加入</h2>
+      <p>有新想法随时加到这里</p>
+    </div>
+
+  </main>
+
+  <footer>
+    zhatools · 离线小工具集<br>
+    每个工具都是独立的单文件 HTML，可以单独下载离线使用 ·
+    <a href="https://github.com/zhanwwwcc/zhatools" target="_blank" rel="noopener">GitHub 仓库</a>
+  </footer>
+
+</div>
+</body>
+</html>
